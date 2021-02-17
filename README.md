@@ -1,7 +1,8 @@
-FastLED_ArduinoGFX_TFT, TFT Screens Like SSD1331, ST7735, or ILI9341 with Adafruit GFX and FastLED APIs
-=======================================================================================================
+FastLED_ArduinoGFX_TFT: FrameBuffer::GFX Support for TFT Screens Like SSD1331, ST7735, or ILI9341 with Adafruit GFX and FastLED APIs
+===================================================================================================================
 
 Adafruit_GFX and FastLED-compatible library for TFT displays like SSD1331, ILI9341 or ST7735.
+
 Note that this is a new version of https://github.com/marcmerlin/FastLED_SPITFT_GFX 
 but instead of the multiple adafruit drivers, some being honestly better than others, and
 the SPI implementation is not as reliable on each chip, this uses moononournation's 
