@@ -6,7 +6,7 @@
 // on how to avoid having all the config pasted in all your scripts.
 
 #include <Adafruit_SSD1331.h>
-#include <FastLED_SPITFT_GFX.h>
+#include <FastLED_ArduinoGFX_TFT.h>
 #include <FastLED.h>
 #include <SPI.h>
 
@@ -22,51 +22,70 @@
 
 // ========================== CONFIG START ===================================================
 
-/*
-SD1331 Pin	    Arduino	ESP8266		rPi
-1 GND
-2 VCC
-3 SCL/SCK/CLK/D0	13	GPIO14/D5	GPIO11/SPI0-SCLK	
-4 SDA/MOSI/D1		11	GPIO13/D7	GPIO10/SPI0-MOSI	
-5 RES/RST		9	GPIO15/D8	GPIO24			
-6 DC/A0 (data)		8	GPIO05/D1	GPIO23			
-7 CS			10	GPIO04/D2	GPIO08		
-*/
-// You can use any (4 or) 5 pins
-// hwspi hardcodes those pins, no need to redefine them
-#define sclk 14
-#define mosi 13
-#define cs   4
-#define rst  15
-#define dc   5
+int tft_spi_speed = 40 * 1000 * 1000;
 
-// Option 1: use any pins but a little slower
-//#pragma message "Using SWSPI"
-//Adafruit_SSD1331 display = Adafruit_SSD1331(cs, dc, mosi, sclk, rst);
+    /*  https://pinout.xyz/pinout/spi
+    SD1331 Pin	    Arduino	ESP8266		ESP32	ESP32	rPi     rPi
+    1 GND                                       VSPI    HSPI	SPI0    SPI1
+    2 VCC
+    3 SCL/SCK/CLK/D0	13	GPIO14/D5	18	14	BC11/22	BC21/40
+    4 SDA/SDI/MOSI/D1	11	GPIO13/D7	23	13	BC10/19	BC20/38
+    ---- 2 pins above and MISO are HWSPI, pins below are anything
+    ---- RST is not part of SPI, it's an out of band signal to reset a TFT
+    ---- This could be wired to the ESP32 EN(reset) pin
+    5 RES/RST		9	GPIO15/D8	26	26	BC24				
+    ---- Data/Command pin is not part of SPI but used to tell the TFT if incoming SPI
+    ---- data is actually a command, or pixel data.
+    6 DC/A0/RS (data)	8	GPIO05/D1	25	25	BC23				
+    ---- Cable select chooses which SPI device we're talking to, if there is only
+    ---- one, it can be tied to ground. Any pin is fine
+    7 CS/SS => GND	10	GPIO04/D2	0	2	BC08			
 
-// Option 2: must use the hardware SPI pins
-// (for UNO thats sclk = 13 and sid = 11) and pin 10 must be
-// an output. This is much faster - also required if you want
-// to use the microSD card (see the image drawing example)
-#pragma message "Using HWSPI"
-Adafruit_SSD1331 *display = new Adafruit_SSD1331(&SPI, cs, dc, rst);
+    CS2: 2
+    
+    ---- MISO is not used to talk to TFTs, but is one of the 3 SPI hardware pins
+      MISO		12	GPIO12/D6	19	12	BM11/23	BC19/35	
+    */
 
 
-// You can either have a 96x64 display (default == 0), or rotated 64x96 (1)
-//#define landscape
-#ifdef landscape
-#define mw 96
-#define mh 64
-CRGB matrixleds[mw*mh];;
+// https://learn.adafruit.com/adafruit-2-dot-8-color-tft-touchscreen-breakout-v2?view=all
+// HWSPI default
 
-FastLED_SPITFT_GFX *matrix = new FastLED_SPITFT_GFX(matrixleds, mw, mh, 96, 64, display, 0);
-#else
-#define mw 64
-#define mh 96
-CRGB matrixleds[mw*mh];;
-
-FastLED_SPITFT_GFX *matrix = new FastLED_SPITFT_GFX(matrixleds, mw, mh, 96, 64, display, 1);
+#if defined(ESP32)
+// this is the TFT reset pin. Some boards may have an auto-reset circuitry on the breakout so this pin might not required but it can be helpful sometimes to reset the TFT if your setup is not always resetting cleanly. Connect to ground to reset the TFT
+    #define TFT_RST 26 // Grey
+    //#define TFT_RST -1 // Grey, can be wired to ESP32 EN to save a pin
+    #define TFT_DC  25 // Purple
+    //#define TFT_CS -1 // for display without CS pin
+    #define TFT_CS  0 // White can be wired to ground
+    #define TFT_CS2 2 // Orange can be wired to ground
+    
+    #define TFT_MOSI 23 // Blue
+    #define TFT_CLK  18 // Green
+    #define TFT_MISO 19 // Yellow
+    #define TFT_BL 15
+#else // ESP8266
+    #define TFT_RST  15
+    #define TFT_DC   5
+    #define TFT_CS   4
+    
+    // You can use any (4 or) 5 pins
+    // hwspi hardcodes those pins, no need to redefine them
+    #define TFT_MOSI 13
+    #define TFT_CLK  14
 #endif
+#define TFT_SCK TFT_CLK
+
+Arduino_DataBus *bus;
+Arduino_DataBus *bus2;
+//Arduino_ILI9341 *gfx;
+Arduino_SSD1331 *gfx;
+
+FastLED_ArduinoGFX_TFT *matrix;
+CRGB *matrixleds;
+
+uint16_t mw;
+uint16_t mh;
 
 
 // ========================== CONFIG END ======================================================
@@ -668,17 +687,52 @@ void setup() {
     // Time for serial port to work?
     delay(1000);
     Serial.begin(115200);
+
+
+    // ========================== CONFIG START ===================================================
+    // General software SPI
+    //bus = new Arduino_SWSPI(TFT_DC, TFT_CS, TFT_SCK , TFT_MOSI , TFT_MISO );
+
+    // General hardware SPI
+    //bus = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);
+
+    //bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);
+
+    // you can have multiple devices sharing the same bus is CS is used to select them
+    bus = new Arduino_HWSPI(TFT_DC, TFT_CS);
+    bus2 = new Arduino_HWSPI(TFT_DC, TFT_CS2);
+
+    // SSD1331 OLED 96x64
+    // do not add 4th IPS argument, even FALSE
+    gfx = new Arduino_SSD1331(bus, TFT_RST, 2 /* rotation */);
+    // ILI9341 LCD 240x320
+    //gfx = new Arduino_ILI9341(bus2, TFT_RST, 0 /* rotation */);
+
+    mw = gfx->width();
+    mh = gfx->height();
+    Serial.print("TFT configured, resolution: ");
+    Serial.print(mw);
+    Serial.print("x");
+    Serial.print(mh);
+    Serial.print(". Speed: ");
+    Serial.print(tft_spi_speed);
+    Serial.println(". For extra speed, try 80Mhz, may be less stable");
+
+    while ((matrixleds = (CRGB *) malloc(mw*mh*3)) == NULL) Serial.println("Malloc Failed");
+    matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, gfx);
+    // ========================== CONFIG END ======================================================
+
+
     // Init TFT display
-    display->begin();
-    Serial.println("For extra speed, try 80Mhz, may be less stable");
-    //display->begin(80000000);
+    gfx->begin(tft_spi_speed);
+
     // Then we can init the FrameBuffer GFX overlay (some backends require begin, some don't)
     matrix->begin();
     matrix->setTextWrap(false);
     Serial.println("If the code crashes here, decrease the brightness or turn off the all white display below");
     // Test full bright of all LEDs. If brightness is too high
     // for your current limit (i.e. USB), decrease it.
-//#define DISABLE_WHITE
+#define DISABLE_WHITE
 #ifndef DISABLE_WHITE
     matrix->fillScreen(LED_WHITE_HIGH);
     matrix->show();
