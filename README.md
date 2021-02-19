@@ -10,6 +10,7 @@ https://github.com/moononournation/Arduino_GFX which supports a lot of TFTs and 
 SPI backends for better speeds and fixes issues of HWSPI not working at all on ESP32 for
 SSD1331 in the adafruit driver: 
 https://github.com/adafruit/Adafruit-SSD1331-OLED-Driver-Library-for-Arduino/issues/27 . 
+
 With Arduino::GFX, for SSD1331, I now get around 160fps on ESP32 at 80Mhz)  
 You also get rotation support which is not supported on SSD1331 in the adafruit driver
 ( https://github.com/adafruit/Adafruit-SSD1331-OLED-Driver-Library-for-Arduino/issues/26 )
