@@ -20,9 +20,15 @@
 // Anything with black does not look so good with the naked eye (better on pictures)
 //#include "linux32.h"
 
+#if defined(ESP32) && defined(BOARD_HAS_PSRAM)
+#define MALLOC ps_malloc
+#else
+#define MALLOC malloc
+#endif
+
 // ========================== CONFIG START ===================================================
 
-int tft_spi_speed = 40 * 1000 * 1000;
+int tft_spi_speed = 24 * 1000 * 1000;
 
     /*  https://pinout.xyz/pinout/spi
     SD1331 Pin	    Arduino	ESP8266		ESP32	ESP32	rPi     rPi
@@ -78,15 +84,13 @@ int tft_spi_speed = 40 * 1000 * 1000;
 
 Arduino_DataBus *bus;
 Arduino_DataBus *bus2;
-//Arduino_ILI9341 *gfx;
-Arduino_SSD1331 *gfx;
+Arduino_ILI9341 *gfx;
+//Arduino_SSD1331 *gfx;
 
 FastLED_ArduinoGFX_TFT *matrix;
 CRGB *matrixleds;
 
-uint16_t mw;
-uint16_t mh;
-
+uint16_t mw, mh, tftw, tfth;
 
 // ========================== CONFIG END ======================================================
 
@@ -683,11 +687,14 @@ void loop() {
     Serial.println("Demo loop done, starting over");
 }
 
+uint32_t millisdiff(uint32_t before) {
+    return((millis()-before) ? (millis()-before): 1);
+}
+
 void setup() {
     // Time for serial port to work?
     delay(1000);
     Serial.begin(115200);
-
 
     // ========================== CONFIG START ===================================================
     // General software SPI
@@ -700,34 +707,131 @@ void setup() {
 
     // you can have multiple devices sharing the same bus is CS is used to select them
     bus = new Arduino_HWSPI(TFT_DC, TFT_CS);
-    bus2 = new Arduino_HWSPI(TFT_DC, TFT_CS2);
+//    bus2 = new Arduino_HWSPI(TFT_DC, TFT_CS2);  // 42fps ILI9341 at 80Mhz
+//    bus2 = new Arduino_ESP32SPI(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI); // 53fps ILI9341 at 80Mhz
+//  Arduino_ESP32SPI_DMA is faster than Arduino_ESP32SPI, but makes framebuffer::gfx slower
+    bus2 = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);//60fps ILI9341 at 80Mhz
 
     // SSD1331 OLED 96x64
     // do not add 4th IPS argument, even FALSE
-    gfx = new Arduino_SSD1331(bus, TFT_RST, 2 /* rotation */);
+    //gfx = new Arduino_SSD1331(bus, TFT_RST, 2 /* rotation */);
     // ILI9341 LCD 240x320
-    //gfx = new Arduino_ILI9341(bus2, TFT_RST, 0 /* rotation */);
+    gfx = new Arduino_ILI9341(bus2, TFT_RST, 0 /* rotation */);
 
-    mw = gfx->width();
-    mh = gfx->height();
-    Serial.print("TFT configured, resolution: ");
-    Serial.print(mw);
-    Serial.print("x");
-    Serial.print(mh);
-    Serial.print(". Speed: ");
-    Serial.print(tft_spi_speed);
-    Serial.println(". For extra speed, try 80Mhz, may be less stable");
+    tftw = gfx->width();
+    tfth = gfx->height();
 
-    while ((matrixleds = (CRGB *) malloc(mw*mh*3)) == NULL) Serial.println("Malloc Failed");
+    // if you are using ILI9341 on ESP32, the framebuffer does not fit in memory (224KB)
+    // If PSRAM is available, it will get used. If not, you need to make the framebuffer
+    // smaller than the TFT. One simple way is to have the framebuffer be half the screen
+    // size, render what you need in one half, display it, render the other half and then
+    // render that.
+    // Before you ask "why would I do this, in that case I can just render to the TFT directly"
+    // the answer is "yes, you can as long as you are using GFX directly, you can indeed skip
+    // the framebuffer, but if you use FastLED/LEDMatrix code that requires a CRGB 24bpp buffer
+    // and does transformations like reading the framebuffer and flipping parts of it, you do
+    // need the framebuffer and therefore it could make sense to split the screen in two and
+    // render each half separately.
+    // In my case, I can use LEDText for fancy font rendering not supported by Adafruit's GFX
+    // and then display the 24bpp framebuffer on the 16bpp TFT
+    mw = tftw;
+    #if defined(BOARD_HAS_PSRAM)
+    mh = tfth;
+    #else
+    mh = tfth/2;
+    #endif
+	
+    while ((matrixleds = (CRGB *) MALLOC(mw*mh*3)) == NULL) Serial.println("Malloc Failed");
     matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, gfx);
-    // ========================== CONFIG END ======================================================
 
+    // ========================== CONFIG END ======================================================
 
     // Init TFT display
     gfx->begin(tft_spi_speed);
 
     // Then we can init the FrameBuffer GFX overlay (some backends require begin, some don't)
     matrix->begin();
+
+    // If we are low on memory, the GFX array coulud be 1/2 or smaller of the TFT display size
+    uint8_t gfx_scale = (tftw*tfth)/(mw*mh);
+
+    Serial.print("TFT configured, resolution: ");
+    Serial.print(tftw);
+    Serial.print("x");
+    Serial.print(tfth);
+    Serial.print(". GFX size:");
+    Serial.print(mw);
+    Serial.print("x");
+    Serial.print(mh);
+    Serial.print(". GFX Size Ratio: ");
+    Serial.print(gfx_scale);
+    Serial.print(". Speed: ");
+    Serial.print(tft_spi_speed);
+    Serial.println(" (80Mhz is fastest but sometimes unstable)");
+
+    uint32_t before;
+    Serial.println("vvvvvvvvvvvvvvvvvvvvvvvvvv Speed vvvvvvvvvvvvvvvvvvvvvvvvvv");
+    before = millis();
+    for (uint8_t i=0; i<5; i++) {
+	gfx->fillScreen(0);
+	gfx->fillScreen(0xFFFF);
+    }
+    Serial.print("TFT SPI Speed: ");
+    Serial.print(tft_spi_speed/1000000);
+    Serial.print("Mhz (");
+    Serial.print(millisdiff(before));
+    Serial.print("ms) Resulting fps: ");
+    Serial.println(10*1000 / millisdiff(before));
+
+    before = millis();
+    for (uint8_t i=0; i<10; i++) {
+      matrix->show(0, 0);
+      if (gfx_scale != 1) matrix->show(0, mh);
+    }
+    Serial.print("Matrix->show() Speed Test: ");
+    Serial.print(millisdiff(before));
+    Serial.print("ms, fps: ");
+    Serial.println(10*1000 / (millisdiff(before)));
+    // if only one show() command is run and the whole screen 
+    // isn't covered, adjust the scale
+    //Serial.println(10*1000 / (millisdiff(before)*gfx_scale));
+
+    before = millis();
+    for (uint8_t i=0; i<10; i++) {
+      matrix->show(0, 0, true);
+      if (gfx_scale != 1) matrix->show(0, mh, true);
+    }
+    // this bypasses accessing PSRAM but also converting, reading, and
+    // writing data in the no PSRAM case.
+    Serial.print("Matrix->show() BYPASS Speed Test: ");
+    Serial.print(millisdiff(before));
+    Serial.print("ms, fps: ");
+    Serial.println(10*1000 / (millisdiff(before)));
+
+    before = millis();
+    for (uint16_t i=0; i<5; i++) { 
+	matrix->fillScreen(LED_BLUE_HIGH);
+        matrix->show(0, 0);
+        if (gfx_scale != 1) matrix->show(0, mh);
+	matrix->fillScreen(LED_RED_HIGH);
+        matrix->show(0, 0);
+        if (gfx_scale != 1) matrix->show(0, mh);
+    }
+    Serial.print("Framebuffer::GFX end to end speed test: ");
+    Serial.print(millisdiff(before));
+    Serial.print("ms, fps: ");
+    Serial.println(10*1000 / (millisdiff(before)));
+    //                     tft/gfx/bypass/copy
+    // 24Mhz, fps no PSRAM: 14/10/13/ 9       PSRAM: 14/ 8/13/6 (Arduino_HWSPI)
+    // 24Mhz, fps no PSRAM: 15/10/13/10  Arduino_ESP32SPI
+    // 24Mhz, fps no PSRAM: 21/12/16/12  Arduino_ESP32SPI_DMA
+    // 40fhz, fps no PSRAM: 25/15/22/14       PSRAM: 25/11/21/8
+    // 80fhz, fps no PSRAM: 42/19/33/18       PSRAM: 40/14/32/9 (Arduino_HWSPI)
+    // 80fhz, fps no PSRAM: 53/21/38/20 Arduino_ESP32SPI
+    // 80fhz, fps no PSRAM: 60/20/34/18 Arduino_ESP32SPI_DMA
+    Serial.println("^^^^^^^^^^^^^^^^^^^^^^^^^^ Speed ^^^^^^^^^^^^^^^^^^^^^^^^^^");
+
+
     matrix->setTextWrap(false);
     Serial.println("If the code crashes here, decrease the brightness or turn off the all white display below");
     // Test full bright of all LEDs. If brightness is too high
@@ -738,22 +842,9 @@ void setup() {
     matrix->show();
     delay(3000);
     matrix->clear();
+    matrix->show();
 #endif
-#if 0
     Serial.println("Running blue/red speed test");
-// You can't use millis to time frame fresh rate because it uses cli() which breaks millis()
-// So I use my stopwatch to count 1000 displays and that's good enough
-// 500 loops of 2 updates each is 13.3s for 1000 updates or 75 updates per second for 4096 LEDs
-// for ESP32
-// For some reason it's much faster on teensy 3.6, 18 seconds or 228fps
-    for (uint16_t i=0; i<500; i++) { 
-	matrix->fillScreen(LED_BLUE_HIGH);
-	matrix->show();
-	matrix->fillScreen(LED_RED_HIGH);
-	matrix->show();
-    }
-    Serial.println("Done running blue/red speed test");
-#endif
 
     // This counts but also shows bleeding between pixels and lines.
     Serial.println("Count pixels. This is slow, you may want to comment me out");

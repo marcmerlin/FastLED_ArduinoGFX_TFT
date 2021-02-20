@@ -27,14 +27,14 @@
 class FastLED_ArduinoGFX_TFT : public Framebuffer_GFX {
   public:
     FastLED_ArduinoGFX_TFT(CRGB *, uint16_t, uint16_t, Arduino_TFT *gfx);
-    void show(boolean speedtest=0);
+    void show(uint16_t x=0, uint16_t y=0, boolean speedtest=0);
     void begin();
 
   protected:
     Arduino_TFT *_gfx;
 
   private:
-    const uint16_t _tftw, _tfth;
+    const uint16_t _fbw, _fbh;
     // temporary storage for 24bit to 16bit convertion
     uint16_t *_line;
 };
