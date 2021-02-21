@@ -126,8 +126,9 @@ uint16_t mh = tfth/2;
 
 // ========================== CONFIG END ======================================================
 
-FastLED_ArduinoGFX_TFT *matrix;
+// On ESP32 you can allocate more memory inside setup() after global setup has been done
 CRGB *matrixleds;
+FastLED_ArduinoGFX_TFT *matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, gfx);;
 
 
 // This could also be defined as matrix->color(255,0,0) but those defines
@@ -731,8 +732,13 @@ void setup() {
     delay(1000);
     Serial.begin(115200);
 
+    // It is not safe to use matrix until now, we feed it a new memory pointer after it's
+    // been created.
     while ((matrixleds = (CRGB *) MALLOC(mw*mh*3)) == NULL) Serial.println("Malloc Failed");
-    matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, gfx);
+    matrix->newLedsPtr(matrixleds);
+    // Instead of fixing the pointer after the fact, the matrix object can also be created at
+    // runtime in setup and then the pointer doesn't need to be fixed
+    // FastLED_ArduinoGFX_TFT matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, gfx);
 
     // Init TFT display
     gfx->begin(tft_spi_speed);
