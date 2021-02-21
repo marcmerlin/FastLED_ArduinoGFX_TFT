@@ -80,10 +80,26 @@ int tft_spi_speed = 24 * 1000 * 1000;
 #endif
 #define TFT_SCK TFT_CLK
 
-Arduino_DataBus *bus;
-Arduino_DataBus *bus2;
-Arduino_ILI9341 *gfx;
-//Arduino_SSD1331 *gfx;
+// General software SPI
+//Arduino_DataBus *bus = new Arduino_SWSPI(TFT_DC, TFT_CS, TFT_SCK , TFT_MOSI , TFT_MISO );
+
+// General hardware SPI
+//Arduino_DataBus *bus = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);
+
+//Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);
+
+// you can have multiple devices sharing the same bus if CS is used to select them
+Arduino_DataBus *bus = new Arduino_HWSPI(TFT_DC, TFT_CS);
+//    Arduino_DataBus *bus2 = new Arduino_HWSPI(TFT_DC, TFT_CS2);  // 42fps ILI9341 at 80Mhz
+//    Arduino_DataBus *bus2 = new Arduino_ESP32SPI(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI); // 53fps ILI9341 at 80Mhz
+//  Arduino_ESP32SPI_DMA is faster than Arduino_ESP32SPI, but makes framebuffer::gfx slower
+Arduino_DataBus *bus2 = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);//60fps ILI9341 at 80Mhz
+
+// SSD1331 OLED 96x64
+// do not add 4th IPS argument, even FALSE
+//Arduino_ILI9341 *gfx = new Arduino_SSD1331(bus, TFT_RST, 2 /* rotation */);
+// ILI9341 LCD 240x320
+Arduino_ILI9341 *gfx = new Arduino_ILI9341(bus2, TFT_RST, 0 /* rotation */);
 
 FastLED_ArduinoGFX_TFT *matrix;
 CRGB *matrixleds;
@@ -695,26 +711,6 @@ void setup() {
     Serial.begin(115200);
 
     // ========================== CONFIG START ===================================================
-    // General software SPI
-    //bus = new Arduino_SWSPI(TFT_DC, TFT_CS, TFT_SCK , TFT_MOSI , TFT_MISO );
-
-    // General hardware SPI
-    //bus = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);
-
-    //bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);
-
-    // you can have multiple devices sharing the same bus is CS is used to select them
-    bus = new Arduino_HWSPI(TFT_DC, TFT_CS);
-//    bus2 = new Arduino_HWSPI(TFT_DC, TFT_CS2);  // 42fps ILI9341 at 80Mhz
-//    bus2 = new Arduino_ESP32SPI(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI); // 53fps ILI9341 at 80Mhz
-//  Arduino_ESP32SPI_DMA is faster than Arduino_ESP32SPI, but makes framebuffer::gfx slower
-    bus2 = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);//60fps ILI9341 at 80Mhz
-
-    // SSD1331 OLED 96x64
-    // do not add 4th IPS argument, even FALSE
-    //gfx = new Arduino_SSD1331(bus, TFT_RST, 2 /* rotation */);
-    // ILI9341 LCD 240x320
-    gfx = new Arduino_ILI9341(bus2, TFT_RST, 0 /* rotation */);
 
     tftw = gfx->width();
     tfth = gfx->height();
