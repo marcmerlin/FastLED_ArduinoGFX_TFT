@@ -6,7 +6,6 @@
 // on how to avoid having all the config pasted in all your scripts.
 
 #include <FastLED_ArduinoGFX_TFT.h>
-#include <FastLED.h>
 #include <SPI.h>
 
 // Choose your prefered pixmap
