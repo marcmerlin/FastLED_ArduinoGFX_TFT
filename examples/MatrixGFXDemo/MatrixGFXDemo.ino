@@ -101,12 +101,33 @@ Arduino_DataBus *bus2 = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS2, TFT_SCK, TFT_M
 // ILI9341 LCD 240x320
 Arduino_ILI9341 *gfx = new Arduino_ILI9341(bus2, TFT_RST, 0 /* rotation */);
 
-FastLED_ArduinoGFX_TFT *matrix;
-CRGB *matrixleds;
+uint16_t tftw = gfx->width();
+uint16_t tfth = gfx->height();
 
-uint16_t mw, mh, tftw, tfth;
+// if you are using ILI9341 on ESP32, the framebuffer does not fit in memory (224KB)
+// If PSRAM is available, it will get used. If not, you need to make the framebuffer
+// smaller than the TFT. One simple way is to have the framebuffer be half the screen
+// size, render what you need in one half, display it, render the other half and then
+// render that.
+// Before you ask "why would I do this, in that case I can just render to the TFT directly"
+// the answer is "yes, you can as long as you are using GFX directly, you can indeed skip
+// the framebuffer, but if you use FastLED/LEDMatrix code that requires a CRGB 24bpp buffer
+// and does transformations like reading the framebuffer and flipping parts of it, you do
+// need the framebuffer and therefore it could make sense to split the screen in two and
+// render each half separately.
+// In my case, I can use LEDText for fancy font rendering not supported by Adafruit's GFX
+// and then display the 24bpp framebuffer on the 16bpp TFT
+uint16_t mw = tftw;
+#if defined(BOARD_HAS_PSRAM)
+uint16_t mh = tfth;
+#else
+uint16_t mh = tfth/2;
+#endif
 
 // ========================== CONFIG END ======================================================
+
+FastLED_ArduinoGFX_TFT *matrix;
+CRGB *matrixleds;
 
 
 // This could also be defined as matrix->color(255,0,0) but those defines
@@ -710,35 +731,8 @@ void setup() {
     delay(1000);
     Serial.begin(115200);
 
-    // ========================== CONFIG START ===================================================
-
-    tftw = gfx->width();
-    tfth = gfx->height();
-
-    // if you are using ILI9341 on ESP32, the framebuffer does not fit in memory (224KB)
-    // If PSRAM is available, it will get used. If not, you need to make the framebuffer
-    // smaller than the TFT. One simple way is to have the framebuffer be half the screen
-    // size, render what you need in one half, display it, render the other half and then
-    // render that.
-    // Before you ask "why would I do this, in that case I can just render to the TFT directly"
-    // the answer is "yes, you can as long as you are using GFX directly, you can indeed skip
-    // the framebuffer, but if you use FastLED/LEDMatrix code that requires a CRGB 24bpp buffer
-    // and does transformations like reading the framebuffer and flipping parts of it, you do
-    // need the framebuffer and therefore it could make sense to split the screen in two and
-    // render each half separately.
-    // In my case, I can use LEDText for fancy font rendering not supported by Adafruit's GFX
-    // and then display the 24bpp framebuffer on the 16bpp TFT
-    mw = tftw;
-    #if defined(BOARD_HAS_PSRAM)
-    mh = tfth;
-    #else
-    mh = tfth/2;
-    #endif
-	
     while ((matrixleds = (CRGB *) MALLOC(mw*mh*3)) == NULL) Serial.println("Malloc Failed");
     matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, gfx);
-
-    // ========================== CONFIG END ======================================================
 
     // Init TFT display
     gfx->begin(tft_spi_speed);
