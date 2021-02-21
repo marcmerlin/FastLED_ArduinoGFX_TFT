@@ -5,7 +5,6 @@
 // Please see the other demos and FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/neomatrix_config.h
 // on how to avoid having all the config pasted in all your scripts.
 
-#include <Adafruit_SSD1331.h>
 #include <FastLED_ArduinoGFX_TFT.h>
 #include <FastLED.h>
 #include <SPI.h>
