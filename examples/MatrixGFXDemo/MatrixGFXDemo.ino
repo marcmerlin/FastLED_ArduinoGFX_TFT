@@ -26,7 +26,9 @@
 
 // ========================== CONFIG START ===================================================
 
-int tft_spi_speed = 24 * 1000 * 1000;
+int tft_spi_speed = 40 * 1000 * 1000;
+// If we are low on memory, the GFX array could be 1/2 or smaller of the TFT display size
+uint8_t gfx_scale = 1;
 
     /*  https://pinout.xyz/pinout/spi
     SD1331 Pin	    Arduino	ESP8266		ESP32	ESP32	rPi     rPi
@@ -97,12 +99,13 @@ Arduino_DataBus *bus2 = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS2, TFT_SCK, TFT_M
 
 // SSD1331 OLED 96x64
 // do not add 4th IPS argument, even FALSE
-//Arduino_ILI9341 *gfx = new Arduino_SSD1331(bus, TFT_RST, 2 /* rotation */);
-// ILI9341 LCD 240x320
-Arduino_ILI9341 *gfx = new Arduino_ILI9341(bus2, TFT_RST, 0 /* rotation */);
+//Arduino_ILI9341 *tft = new Arduino_SSD1331(bus, TFT_RST, 2 /* rotation */);
+// ILI9341 LCD 320x240
+Arduino_ILI9341 *tft = new Arduino_ILI9341(bus2, TFT_RST, 3 /* rotation */);
 
-uint16_t tftw = gfx->width();
-uint16_t tfth = gfx->height();
+// BUG: Arduino::GFX should swap height and width when rotated?
+uint16_t tfth = tft->width();
+uint16_t tftw = tft->height();
 
 // if you are using ILI9341 on ESP32, the framebuffer does not fit in memory (224KB)
 // If PSRAM is available, it will get used. If not, you need to make the framebuffer
@@ -128,7 +131,12 @@ uint16_t mh = tfth/2;
 
 // On ESP32 you can allocate more memory inside setup() after global setup has been done
 CRGB *matrixleds;
-FastLED_ArduinoGFX_TFT *matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, gfx);;
+FastLED_ArduinoGFX_TFT *matrix  = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, tft);;
+
+// Use the same framebuffer for both halves of the screen if we lack PSRAM
+#if !defined(BOARD_HAS_PSRAM)
+FastLED_ArduinoGFX_TFT *matrix2 = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, tft);;
+#endif
 
 
 // This could also be defined as matrix->color(255,0,0) but those defines
@@ -406,6 +414,7 @@ void display_four_white() {
     matrix->drawRect(2,2, mw-4,mh-4, LED_WHITE_LOW);
     matrix->drawRect(3,3, mw-6,mh-6, LED_WHITE_VERYLOW);
     matrix->show();
+    if (gfx_scale != 1) matrix->show(0, mh);
 }
 
 void display_bitmap(uint8_t bmp_num, uint16_t color) { 
@@ -421,6 +430,7 @@ void display_bitmap(uint8_t bmp_num, uint16_t color) {
     if (!bmx) bmy += 8;
     if (bmy >= mh) bmy = 0;
     matrix->show();
+    if (gfx_scale != 1) matrix->show(0, mh);
 }
 
 void display_rgbBitmap(uint8_t bmp_num) { 
@@ -432,6 +442,7 @@ void display_rgbBitmap(uint8_t bmp_num) {
     if (!bmx) bmy += 8;
     if (bmy >= mh) bmy = 0;
     matrix->show();
+    if (gfx_scale != 1) matrix->show(0, mh);
 }
 
 void display_lines() {
@@ -453,6 +464,7 @@ void display_lines() {
     matrix->drawLine(0,0, mw-1,mh-1, LED_BLUE_HIGH);
     matrix->drawLine(0,mh-1, mw-1,0, LED_ORANGE_MEDIUM);
     matrix->show();
+    if (gfx_scale != 1) matrix->show(0, mh);
 }
 
 void display_boxes() {
@@ -462,6 +474,7 @@ void display_boxes() {
     matrix->fillRect(2,2, mw-4,mh-4, LED_RED_HIGH);
     matrix->fillRect(3,3, mw-6,mh-6, LED_ORANGE_MEDIUM);
     matrix->show();
+    if (gfx_scale != 1) matrix->show(0, mh);
 }
 
 void display_circles() {
@@ -473,6 +486,7 @@ void display_circles() {
     matrix->drawCircle(mw-2,1, 1, LED_GREEN_HIGH);
     if (min(mw,mh)>12) matrix->drawCircle(mw/2-1, mh/2-1, min(mh/2-1,mw/2-1), LED_CYAN_HIGH);
     matrix->show();
+    if (gfx_scale != 1) matrix->show(0, mh);
 }
 
 void display_resolution() {
@@ -501,6 +515,7 @@ void display_resolution() {
 	    // we're not tall enough either, so we wait and display
 	    // the 2nd value on top.
 	    matrix->show();
+	    if (gfx_scale != 1) matrix->show(0, mh);
 	    delay(2000);
 	    matrix->clear();
 	    matrix->setCursor(mw-11, 0);
@@ -532,6 +547,7 @@ void display_resolution() {
     }
     
     matrix->show();
+    if (gfx_scale != 1) matrix->show(0, mh);
 }
 
 void display_scrollText() {
@@ -603,6 +619,7 @@ void display_panOrBounceBitmap (uint8_t bitmapSize) {
 	if (bitmapSize == 24) matrix->drawRGBBitmap(x, y, (const uint16_t *) bitmap24, bitmapSize, bitmapSize);
 	if (bitmapSize == 32) matrix->drawRGBBitmap(x, y, (const uint16_t *) bitmap32, bitmapSize, bitmapSize);
 	matrix->show();
+	if (gfx_scale != 1) matrix->show(0, mh);
 	 
 	// Only pan if the display size is smaller than the pixmap
 	// but not if the difference is too small or it'll look bad.
@@ -732,22 +749,26 @@ void setup() {
     delay(1000);
     Serial.begin(115200);
 
+    Framebuffer_GFX::show_free_mem("Before matrixleds malloc");
     // It is not safe to use matrix until now, we feed it a new memory pointer after it's
     // been created.
     while ((matrixleds = (CRGB *) MALLOC(mw*mh*3)) == NULL) Serial.println("Malloc Failed");
     matrix->newLedsPtr(matrixleds);
     // Instead of fixing the pointer after the fact, the matrix object can also be created at
     // runtime in setup and then the pointer doesn't need to be fixed
-    // FastLED_ArduinoGFX_TFT matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, gfx);
+    // FastLED_ArduinoGFX_TFT matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, tft);
+#if !defined(BOARD_HAS_PSRAM)
+    matrix2->newLedsPtr(matrixleds);
+#endif
 
     // Init TFT display
-    gfx->begin(tft_spi_speed);
+    tft->begin(tft_spi_speed);
 
     // Then we can init the FrameBuffer GFX overlay (some backends require begin, some don't)
     matrix->begin();
 
-    // If we are low on memory, the GFX array coulud be 1/2 or smaller of the TFT display size
-    uint8_t gfx_scale = (tftw*tfth)/(mw*mh);
+    // For ILI9341 on ESP32 without PSRAM, we only have enough memory for half the display
+    gfx_scale = (tftw*tfth)/(mw*mh);
 
     Serial.print("TFT configured, resolution: ");
     Serial.print(tftw);
@@ -767,8 +788,8 @@ void setup() {
     Serial.println("vvvvvvvvvvvvvvvvvvvvvvvvvv Speed vvvvvvvvvvvvvvvvvvvvvvvvvv");
     before = millis();
     for (uint8_t i=0; i<5; i++) {
-	gfx->fillScreen(0);
-	gfx->fillScreen(0xFFFF);
+	tft->fillScreen(0);
+	tft->fillScreen(0xFFFF);
     }
     Serial.print("TFT SPI Speed: ");
     Serial.print(tft_spi_speed/1000000);
