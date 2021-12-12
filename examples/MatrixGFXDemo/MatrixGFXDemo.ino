@@ -133,12 +133,6 @@ uint16_t mh = tfth/2;
 CRGB *matrixleds;
 FastLED_ArduinoGFX_TFT *matrix  = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, tft);;
 
-// Use the same framebuffer for both halves of the screen if we lack PSRAM
-#if !defined(BOARD_HAS_PSRAM)
-FastLED_ArduinoGFX_TFT *matrix2 = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, tft);;
-#endif
-
-
 // This could also be defined as matrix->color(255,0,0) but those defines
 // are meant to work for adafruit_gfx backends that are lacking color()
 #define LED_BLACK		0
