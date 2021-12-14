@@ -751,9 +751,6 @@ void setup() {
     // Instead of fixing the pointer after the fact, the matrix object can also be created at
     // runtime in setup and then the pointer doesn't need to be fixed
     // FastLED_ArduinoGFX_TFT matrix = new FastLED_ArduinoGFX_TFT(matrixleds, mw, mh, tft);
-#if !defined(BOARD_HAS_PSRAM)
-    matrix2->newLedsPtr(matrixleds);
-#endif
 
     // Init TFT display
     tft->begin(tft_spi_speed);
