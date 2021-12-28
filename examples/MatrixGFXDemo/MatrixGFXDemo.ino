@@ -92,10 +92,12 @@ uint8_t gfx_scale = 1;
 
 // you can have multiple devices sharing the same bus if CS is used to select them
 Arduino_DataBus *bus = new Arduino_HWSPI(TFT_DC, TFT_CS);
-//    Arduino_DataBus *bus2 = new Arduino_HWSPI(TFT_DC, TFT_CS2);  // 42fps ILI9341 at 80Mhz
+Arduino_DataBus *bus2 = new Arduino_HWSPI(TFT_DC, TFT_CS2);  // 42fps ILI9341 at 80Mhz
+
+// Older Arduino::GFX had faster framebuffer copy methods, but they have been removed
 //    Arduino_DataBus *bus2 = new Arduino_ESP32SPI(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI); // 53fps ILI9341 at 80Mhz
-//  Arduino_ESP32SPI_DMA is faster than Arduino_ESP32SPI, but makes framebuffer::gfx slower
-Arduino_DataBus *bus2 = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);//60fps ILI9341 at 80Mhz
+//  Arduino_ESP32SPI_DMA was faster than Arduino_ESP32SPI, but makes framebuffer::gfx slower
+//Arduino_DataBus *bus2 = new Arduino_ESP32SPI_DMA(TFT_DC, TFT_CS2, TFT_SCK, TFT_MOSI, TFT_MISO, VSPI);//60fps ILI9341 at 80Mhz
 
 // SSD1331 OLED 96x64
 // do not add 4th IPS argument, even FALSE
