@@ -3,6 +3,25 @@ FastLED_ArduinoGFX_TFT: FrameBuffer::GFX Support for TFT Screens Like SSD1331, S
 
 Adafruit_GFX and FastLED-compatible library for TFT displays like SSD1331, ILI9341 or ST7735.
 
+Why would you use this lib? It's not as efficient as using Adafruit::GFX directly inside Arduino_GFX?
+-----------------------------------------------------------------------------------------------------
+If all you use is Adafruit::GFX, you should not use my lib, it adds unnecessary overhead.
+
+Pros:
+* Because you have a framebuffer, your code can read the framebuffer and do operations like CRGB scale8 or fadeToBlackBy. You can also use/write code that mirrors the screen, or scrolls it in ways not supported by the TFT driver.
+* More generally you can read pixels back from the framebuffer (TFTs are normally write only)
+* https://github.com/marcmerlin/Framebuffer_GFX Support means you get support for FastLED and LEDMatrix 2D code (see http://marc.merlins.org/perso/arduino/post_2020-03-16_Framebuffer_GFX_-Choosing-between-its-3-2D-APIs_-FastLED-XY_-NeoMatrix_-and-LEDMatrix_-and-detail-of-its-many-supported-hardware-backends.html )
+* Compatible with code using 24bit RGB888/CRGB data types (they will be converted back down to RGB565 16 bit color).
+* Code you write against FrameBuffer::GFX (which supports FastLED_ArduinoGFX_TFT, this lib), will work against any other supported hardware backend (SmartMatrix, FastLED Matrix, Linux ArduinoOnPC to write and debug your code on linux with gdb)
+
+Cons:
+* It is slower of course, TFT is updated by writing the entire framebuffer. This can be as slow as 15fps on a big display over SPI, but will be 100fps+ on smaller ones, so the speed probably won't matter
+* It uses more memory. The framebuffer is stored in 24bpp (when only 16bpp are actually needed for TFTs). IF you have an ILI9341 on ESP32 without PSRAM, the entire framebuffer won't fit, but the code allows to allocate a portion of the framebuffer (top half and bottom half) if that works for you.
+
+
+Introduction
+------------
+
 Note that this is a new version of https://github.com/marcmerlin/FastLED_SPITFT_GFX 
 but instead of the multiple adafruit drivers, some being honestly better than others, and
 the SPI implementation is not as reliable on each chip, this uses moononournation's 
