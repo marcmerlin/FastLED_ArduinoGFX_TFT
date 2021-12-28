@@ -29,8 +29,8 @@ Pros:
 * Compatible with code using 24bit RGB888/CRGB data types (they will be converted back down to RGB565 16 bit color).
 * Code you write against FrameBuffer::GFX (which supports FastLED_ArduinoGFX_TFT, this lib), will work against any other supported hardware backend (SmartMatrix, FastLED Matrix, Linux ArduinoOnPC to write and debug your code on linux with gdb)
 * **You can mirror a 96x64 SmartMatrix FrameBuffer onto an SSD1331 TFT**. This is the cool part, you can have multiple framebuffers, or you can share the same framebuffer between some other display and a TFT, or even 2 TFTs.  
-For instance the same 96x64 demo can run on a P3 RGBPanel and an SSD1331 (in this picture with 2 CPUs, but it can run on a single
-one with the same framebuffer sent to 2 hardware backends:
+For instance this same 96x64 demo can run on a P3 RGBPanel and an SSD1331 (in this picture with 2 CPUs, but it can run on a single
+one with the same framebuffer sent to 2 hardware backends):
 ![image](https://user-images.githubusercontent.com/1369412/58442645-5c693700-80a1-11e9-8005-f57b7da63482.png)
 
 Cons:
