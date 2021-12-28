@@ -40,9 +40,9 @@ Cons:
 Examples
 --------
 * https://github.com/marcmerlin/FastLED_ArduinoGFX_TFT/tree/master/examples/MatrixGFXDemo is a basic example
-* https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/tree/0694b6a76ab627932dec403051c6314d67cadb44/LEDMatrix/LEDText shows an example of using LEDMatrix and LEDText (using CRGB888) on top of a TFT (framebuffer converted back down to RGB565 by this lib and sent to the TFT via Arduino_GFX)
+* https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/tree/master/LEDMatrix/LEDText shows an example of using LEDMatrix and LEDText (using CRGB888) on top of a TFT (framebuffer converted back down to RGB565 by this lib and sent to the TFT via Arduino_GFX)
 * https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/blob/master/neomatrix_config_tftonly.h is an simplified config file that only works for TFTs but is shorter to read and easier to understand
-* https://github.com/marcmerlin/FastLED_NeoMatrix_SmartMatrix_LEDMatrix_GFX_Demos/tree/master/LEDMatrix/DualTFTDisplay shows how to control 2 different TFTs
+* https://github.com/marcmerlin/FastLED_ArduinoGFX_TFT/tree/master/examples/DualTFTDisplay shows how to control 2 different TFTs
 
 Usage
 -----
