@@ -70,12 +70,16 @@ bool init_done = 0;
     }
 #elif defined(ESP32)
     #define FS_PREFIX ""
-    //#include <SPIFFS.h>
-    //#define FSOSPIFFS
-    //#define FSO SPIFFS
-    #include "FFat.h"
-    #define FSO FFat
-    #define FSOFAT
+    #if ESP32FATFS
+        #include "FFat.h"
+        #define FSO FFat
+        #define FSOFAT
+    #else
+        #include "FS.h"
+        #include <LITTLEFS.h>
+        #define FSO LITTLEFS
+        #define FSOLITTLEFS
+    #endif
     // Do NOT add a trailing slash, or things will fail
     #if gif_size == 64
         #define GIF_DIRECTORY FS_PREFIX "/gifs64"
