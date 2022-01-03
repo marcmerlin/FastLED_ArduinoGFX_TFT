@@ -56,6 +56,16 @@ Arduino_GFX *gfx = gfx2;
 
 #include "GifClass.h"
 static GifClass gifClass;
+gd_GIF *gif;
+// On ESP32, it's better to allocate memory at runtime than use a static
+// char, so we malloc it later. See
+// http://marc.merlins.org/perso/arduino/post_2020-01-14_LCA-2020-Talk_-ESP32-Memory-Management_-Neopixels-and-RGBPanels.html
+uint8_t *buf;
+
+void die(const char *mesg) {
+    Serial.println(mesg);
+    while(1) delay((uint32_t)1); // while 1 loop only triggers watchdog on ESP chips
+}
 
 void setup()
 {
@@ -75,8 +85,8 @@ void setup()
 
   if (!LITTLEFS.begin())
   {
-    Serial.println(F("ERROR: File System Mount Failed!"));
     gfx->println(F("ERROR: File System Mount Failed!"));
+    die("ERROR: File System Mount Failed!");
   }
   else
   {
@@ -94,80 +104,25 @@ void setup()
     File gifFile = LITTLEFS.open(GIF_FILENAME, "r");
     if (!gifFile || gifFile.isDirectory())
     {
-      Serial.println(F("ERROR: open gifFile Failed!"));
       gfx->println(F("ERROR: open gifFile Failed!"));
+      die("ERROR: open gifFile Failed!");
     }
     else
     {
       // read GIF file header
-      gd_GIF *gif = gifClass.gd_open_gif(&gifFile);
+      gif = gifClass.gd_open_gif(&gifFile);
       if (!gif)
       {
-        Serial.println(F("gd_open_gif() failed!"));
+        gfx->println(F("gd_open_gif() failed!"));
+        die("gd_open_gif() failed!");
       }
       else
       {
-        uint8_t *buf = (uint8_t *)malloc(gif->width * gif->height);
+        buf = (uint8_t *)malloc(gif->width * gif->height);
         if (!buf)
         {
-          Serial.println(F("buf malloc failed!"));
-        }
-        else
-        {
-          int16_t x = (gfx->width() - gif->width) / 2;
-          int16_t y = (gfx->height() - gif->height) / 2;
-
-          Serial.println(F("GIF video start"));
-          uint32_t t_fstart, t_delay = 0, t_real_delay, delay_until;
-          int32_t res;
-          uint32_t duration = 0, remain = 0;
-          while (1)
-          {
-            t_fstart = millis();
-            t_delay = gif->gce.delay * 10;
-            res = gifClass.gd_get_frame(gif, buf);
-            if (res < 0)
-            {
-              Serial.println(F("ERROR: gd_get_frame() failed!"));
-              break;
-            }
-            else if (res == 0)
-            {
-              Serial.print(F("rewind, duration: "));
-              Serial.print(duration);
-              Serial.print(F(", remain: "));
-              Serial.print(remain);
-              Serial.print(F(" ("));
-              Serial.print(100.0 * remain / duration);
-              Serial.println(F("%)"));
-              duration = 0;
-              remain = 0;
-              gifClass.gd_rewind(gif);
-              continue;
-            }
-
-            gfx->drawIndexedBitmap(x, y, buf, gif->palette->colors, gif->width, gif->height);
-
-            t_real_delay = t_delay - (millis() - t_fstart);
-            duration += t_delay;
-            remain += t_real_delay;
-            delay_until = millis() + t_real_delay;
-            do
-            {
-              delay(1);
-            } while (millis() < delay_until);
-          }
-          Serial.println(F("GIF video end"));
-          Serial.print(F("duration: "));
-          Serial.print(duration);
-          Serial.print(F(", remain: "));
-          Serial.print(remain);
-          Serial.print(F(" ("));
-          Serial.print(100.0 * remain / duration);
-          Serial.println(F("%)"));
-
-          gifClass.gd_close_gif(gif);
-          free(buf);
+          gfx->println(F("buf malloc failed!"));
+          die("buf malloc failed!");
         }
       }
     }
@@ -176,4 +131,72 @@ void setup()
 
 void loop()
 {
+  int16_t x = (gfx->width() - gif->width) / 2;
+  int16_t y = (gfx->height() - gif->height) / 2;
+  uint32_t t_fstart, t_delay = 0, t_real_delay, delay_until;
+  int32_t res;
+  uint32_t duration = 0, remain = 0;
+
+  Serial.println((int)gif);
+  Serial.println((int)buf);
+  Serial.print(F("GIF video start at "));
+  Serial.print(x);
+  Serial.print(F(" x "));
+  Serial.print(y);
+  Serial.print(F(" for size "));
+  Serial.print(gif->width);
+  Serial.print(F(" x "));
+  Serial.println(gif->height);
+  while (1)
+  {
+    t_fstart = millis();
+    t_delay = gif->gce.delay * 10;
+  Serial.println(F("1"));
+    res = gifClass.gd_get_frame(gif, buf);
+  Serial.println(F("2"));
+    if (res < 0)
+    {
+      Serial.println(F("ERROR: gd_get_frame() failed!"));
+      break;
+    }
+    else if (res == 0)
+    {
+  Serial.println(F("3"));
+      Serial.print(F("rewind, duration: "));
+      Serial.print(duration);
+      Serial.print(F(", remain: "));
+      Serial.print(remain);
+      Serial.print(F(" ("));
+      Serial.print(100.0 * remain / duration);
+      Serial.println(F("%)"));
+      duration = 0;
+      remain = 0;
+      gifClass.gd_rewind(gif);
+      continue;
+    }
+  Serial.println(F("4"));
+
+    gfx->drawIndexedBitmap(x, y, buf, gif->palette->colors, gif->width, gif->height);
+
+    t_real_delay = t_delay - (millis() - t_fstart);
+    duration += t_delay;
+    remain += t_real_delay;
+    delay_until = millis() + t_real_delay;
+  Serial.println(F("5"));
+    do
+    {
+      delay(1);
+    } while (millis() < delay_until);
+  Serial.println(F("6"));
+  }
+  Serial.println(F("GIF video end"));
+  Serial.print(F("duration: "));
+  Serial.print(duration);
+  Serial.print(F(", remain: "));
+  Serial.print(remain);
+  Serial.print(F(" ("));
+  Serial.print(100.0 * remain / duration);
+  Serial.println(F("%)"));
+
+  gifClass.gd_close_gif(gif);
 }
