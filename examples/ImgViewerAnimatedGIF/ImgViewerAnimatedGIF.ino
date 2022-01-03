@@ -124,6 +124,12 @@ void setup()
           gfx->println(F("buf malloc failed!"));
           die("buf malloc failed!");
         }
+	// Adding this line changes a crash in 
+	// 0x400d19f9: GifClass::read_image_data(gd_GIF*, short, unsigned char*) at /tmp/arduino_build_284581/sketch/GifClass.h line 575
+	// to
+	// CORRUPT HEAP: Bad head at 0x3ffc1ddc. Expected 0xabba1234 got 0x3ffdfff8
+	// void gd_close_gif(gd_GIF *gif) free(gif->table);
+	Serial.println(gifClass.gd_get_frame(gif, buf));
       }
     }
   }
