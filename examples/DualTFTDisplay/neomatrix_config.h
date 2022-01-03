@@ -173,6 +173,7 @@ uint16_t tfth_[TFTCNT];
 uint8_t gfx_scale_[TFTCNT];
 const char *tftname_[TFTCNT];
 
+// Compat with single screen code, will hardcode to screen #1
 Arduino_TFT* tft;
 CRGB *matrixleds;
 FastLED_ArduinoGFX_TFT *matrix;
@@ -240,6 +241,15 @@ const uint16_t mw1 =   tftw1;
 //============================================================================
 // End Matrix defines
 //============================================================================
+//
+// Compat with single screen code, will hardcode to screen #1
+// must be const as it's used for array definitions and ifdef
+const uint16_t mw = mw1;
+const uint16_t mh = mh1;
+const uint16_t MATRIX_WIDTH = mw1;
+const uint16_t MATRIX_HEIGHT = mh1;
+const uint32_t NUMMATRIX = mw*mh;
+const uint32_t NUM_LEDS = NUMMATRIX;
 
 #ifdef ESP8266
 // Turn off Wifi in setup()
@@ -263,6 +273,11 @@ uint16_t XY( uint8_t x, uint8_t y) {
 // but x/y can be bigger than 256
 uint16_t XY16( uint16_t x, uint16_t y) {
     return matrix->XY(x,y);
+}
+// Like XY, but for a mirror image from the top (used by misconfigured code)
+int XY2( int x, int y, bool wrap=false) {
+    wrap = wrap; // squelch compiler warning
+    return matrix->XY(x,MATRIX_HEIGHT-1-y);
 }
 
 int wrapX(int x) {
@@ -607,6 +622,7 @@ void matrix_setup(bool initserial=true, int reservemem = 40000) {
     // Hence, flush input.
     while(Serial.available() > 0) { char t = Serial.read(); t = t; }
     Serial.println("matrix_setup done");
+
 }
 #endif // neomatrix_config_h
 // vim:sts=4:sw=4:et
