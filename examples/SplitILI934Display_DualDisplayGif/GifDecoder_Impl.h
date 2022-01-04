@@ -1,0 +1,1 @@
+AnimatedGIFs/GifDecoder_Impl.h

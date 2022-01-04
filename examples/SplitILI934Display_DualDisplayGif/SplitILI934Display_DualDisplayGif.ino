@@ -10,17 +10,288 @@
 #undef BOARD_HAS_PSRAM
 #include "neomatrix_config.h"
 
-/*
-Before, with arrays
-Heap Memory Available: 179392 bytes total, 86640 bytes largest free block
-8-bit Accessible Memory Available: 92752 bytes total, 36576 bytes largest free block
 
-After malloc cleanup
-Heap Memory Available: 212344 bytes total, 86640 bytes largest free block
-8-bit Accessible Memory Available: 125704 bytes total, 64624 bytes largest free block
+// ****************************************
+// SSD1306 96x64 Gif Anim
+// ****************************************
+#define gif_size 96
+#define NEOMATRIX
+#define BASICARDUINOFS
+#include "GifAnim_Impl.h"
 
-39KB of static memory saved
-*/
+int OFFSETX = 0;
+int OFFSETY = 0;
+int FACTX = 10;
+int FACTY = 10;
+
+void ssd1331_setup() {
+    const char *pathname = "/kiss2.gif";
+    sav_setup();
+    if (sav_newgif(pathname)) delay(100000); // while 1 loop only triggers watchdog on ESP chips
+}
+
+// ****************************************
+// SSD1306 
+// ****************************************
+
+#define PAD_BL 12
+#define PAD_TL 15
+#define PAD_BR 14
+#define PAD_TR 27
+#define BUTL 16
+#define BUTR 17
+
+#include <Adafruit_SSD1306.h>
+#include <SPI.h>
+#include <Wire.h>
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+Adafruit_SSD1306 *display1, *display2;
+
+uint8_t **imagesL;
+uint8_t **imagesR;
+
+void ssd1306_setup() {
+    display1 = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+    display2 = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+    // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+    if(!display1->begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+	Serial.println(F("SSD1306 #1 allocation failed"));
+	for(;;); // Don't proceed, loop forever
+    }
+    if(!display2->begin(SSD1306_SWITCHCAPVCC, 0x3D)) { // Address 0x3D for 128x64
+	Serial.println(F("SSD1306 #2 allocation failed"));
+	for(;;); // Don't proceed, loop forever
+    }
+
+    // Show initial display buffer contents on the screen --
+    // the library initializes this with an Adafruit splash screen.
+    display1->display();
+    display2->display();
+    display1->invertDisplay(true);
+    display2->invertDisplay(true);
+
+    #define IMG "/"
+    static uint8_t *limagesL[53] = {
+	load_image(IMG "L00.pbm"),
+	NULL, // 01
+	NULL, // 02
+	load_image(IMG "L03.pbm"),
+	NULL, // 04
+	load_image(IMG "L05.pbm"),
+	load_image(IMG "L06.pbm"),
+	load_image(IMG "L07.pbm"),
+	load_image(IMG "L08.pbm"),
+	load_image(IMG "L09.pbm"),
+	NULL, // 10
+	load_image(IMG "L11.pbm"),
+	load_image(IMG "L12.pbm"),
+	NULL, // 13
+	NULL, // 14
+	NULL, // 15
+	NULL, // 16
+	NULL, // 17
+	NULL, // 18
+	NULL, // 19
+	NULL, // 20
+	NULL, // 21
+	NULL, // 22
+	NULL, // 23
+	NULL, // 24
+	NULL, // 25
+	NULL, // 26
+	NULL, // 27
+	NULL, // 28
+	NULL, // 29
+	NULL, // 30
+	NULL, // 31
+	NULL, // 32
+	NULL, // 33
+	NULL, // 34
+	NULL, // 35
+	NULL, // 36
+	NULL, // 37
+	NULL, // 38
+	NULL, // 39
+	NULL, // 40
+	NULL, // 41
+	NULL, // 42
+	NULL, // 43
+	NULL, // 44
+	NULL, // 45
+	NULL, // 46
+	NULL, // 47
+	NULL, // 48
+	NULL, // 49
+	NULL, // 50
+	NULL, // 51
+	NULL, // 52
+    };
+    Serial.println("Left PBMs loaded");
+
+    static uint8_t *limagesR[53] = {
+	load_image(IMG "R00.pbm"),
+	NULL, // 01
+	NULL, // 02
+	load_image(IMG "R03.pbm"),
+	NULL, // 04
+	load_image(IMG "R05.pbm"),
+	load_image(IMG "R06.pbm"),
+	load_image(IMG "R07.pbm"),
+	load_image(IMG "R08.pbm"),
+	load_image(IMG "R09.pbm"),
+	NULL, // 10
+	load_image(IMG "R11.pbm"),
+	load_image(IMG "R12.pbm"),
+	NULL, // 13
+	NULL, // 14
+	NULL, // 15
+	NULL, // 16
+	NULL, // 17
+	NULL, // 18
+	NULL, // 19
+	NULL, // 20
+	NULL, // 21
+	NULL, // 22
+	load_image(IMG "R23.pbm"),
+	load_image(IMG "R24.pbm"),
+	NULL, // 25
+	NULL, // 26
+	NULL, // 27
+	NULL, // 28
+	NULL, // 29
+	NULL, // 30
+	NULL, // 31
+	load_image(IMG "R32.pbm"),
+	load_image(IMG "R33.pbm"),
+	NULL, // 34
+	NULL, // 35
+	NULL, // 36
+	NULL, // 37
+	NULL, // 38
+	NULL, // 39
+	NULL, // 40
+	NULL, // 41
+	NULL, // 42
+	NULL, // 43
+	NULL, // 44
+	NULL, // 45
+	NULL, // 46
+	NULL, // 47
+	NULL, // 48
+	NULL, // 49
+	NULL, // 50
+	NULL, // 51
+	NULL, // 52
+    };
+    Serial.println("Right PBMs loaded");
+    imagesL = limagesL;
+    imagesR = limagesR;
+
+    pinMode(BUTL, INPUT_PULLUP);
+    pinMode(BUTR, INPUT_PULLUP);
+}
+
+void button_handler() {
+    static bool leftoled = 0;
+    static bool rightoled = 0;
+    static bool lastleftbut = 0;
+    static bool lastrightbut = 0;
+
+    bool leftbut  = digitalRead(BUTL);
+    bool rightbut = digitalRead(BUTR);
+    if (leftbut && !lastleftbut) {
+        leftoled = !leftoled;
+	display1->invertDisplay(true);
+	lastleftbut = leftbut;
+    }
+    if (rightbut && !lastrightbut) {
+        rightoled = !rightoled;
+	display2->invertDisplay(true);
+	lastrightbut = rightbut;
+    }
+}
+
+uint8_t *load_image(const char *filename) {
+    File file;
+    // We're reading 128x64 1bpp images, they are 1KB exactly
+    uint8_t *array = (uint8_t *) malloc (1024);
+
+    if (! (file = FSO.open(filename, "r") ) ) { Serial.print("Cannot load: "); die(filename); }
+    // Skip first 3 lines
+    file.readStringUntil('\n');
+    file.readStringUntil('\n');
+    file.readStringUntil('\n');
+    file.read(array, 1024);
+    file.close();
+
+    return array;
+}
+
+// ****************************************
+// ILI9341 bottom screen text scrolling
+// ****************************************
+uint8_t fontsize = 34;
+const char *str_display[] = 
+    { "Marc MERLIN",
+      "Linux Geek",
+      "Linux.conf.au. OHMC", };
+
+const uint8_t numstr = 3;
+
+int8_t  str_dir[numstr] = { 1, -1, 1 };
+int8_t  str_chg[numstr] = { 1,  2, 4 };
+uint16_t str_len[numstr];
+int16_t str_x[numstr] = { 0, 0, 0 };
+int16_t str_y[numstr] = { 126, 164, 200 };
+// If the string is bigger than the screen size, pan instead of scrolling
+int16_t str_pan[numstr] = { 0, 0, 0 };
+uint16_t str_color[numstr] = { (uint16_t)0xFFFF, (uint16_t)0xFFC0, (uint16_t)0x03FF };
+
+
+void scrollText_reset() {
+    int16_t dummy;
+    uint16_t h;
+
+    tft->setRotation(3);
+    tft->setTextWrap(false);  // we don't wrap text so it scrolls nicely
+    tft->setTextSize(4);
+
+    for (uint8_t idx = 0; idx < numstr; idx++) {
+	tft->getTextBounds(str_display[idx], 0, 0, &dummy, &dummy, &str_len[idx], &h);
+	if (str_len[idx] > mw) str_pan[idx] = str_len[idx] - mw;
+    }
+
+    str_x[1] = (uint16_t) mw - str_len[1];
+}
+
+// tft-> talks directly to the full TFT via ArduinoGFX and matrix-> to FrameBuffer::GFX
+void scrollText_display() {
+    for (uint8_t idx = 0; idx < numstr; idx++) {
+	tft->setTextColor(str_color[idx]);
+	if (str_x[idx] < -str_pan[idx]) { 
+	    str_dir[idx] = 1; 
+	} else if (str_x[idx] > str_pan[idx] + mw - str_len[idx]) { 
+	    str_dir[idx] = -1; 
+	};
+	str_x[idx] += str_dir[idx] * str_chg[idx];
+
+	// Erase the previous text plus move speed before and after (str_chg)
+	tft->fillRect(str_x[idx]-str_chg[idx], str_y[idx], str_len[idx]+str_chg[idx]*2, fontsize, 0x0);
+	tft->setCursor(str_x[idx], str_y[idx]);
+	tft->print(str_display[idx]);
+    }
+}
+
+
+
+
+// ****************************************
+// ILI9341 demos for top half of the screen
+// ****************************************
 
 static uint8_t intensity = 42;  // was 255
 
@@ -198,7 +469,7 @@ void rain(byte backgroundDepth, byte maxBrightness, byte spawnFreq, byte tailLen
 			//uint8_t lightning[MATRIX_WIDTH][MATRIX_HEIGHT];
 			// ESP32 does not like static arrays  https://github.com/espressif/arduino-esp32/issues/2567
 			uint8_t *lightning = (uint8_t *) malloc(MATRIX_WIDTH * MATRIX_HEIGHT);
-			while (lightning == NULL) { Serial.println("lightning malloc failed"); }
+			if (lightning == NULL) die("lightning malloc failed");
 
 
 			if (random16() < 72) {		// Odds of a lightning bolt
@@ -519,59 +790,6 @@ void sublime_reset() {
     memset(splashArray, 0, MATRIX_WIDTH);
 }
 
-uint8_t fontsize = 34;
-const char *str_display[] = 
-    { "Marc MERLIN",
-      "Linux Geek",
-      "Linux.conf.au. OHMC", };
-
-const uint8_t numstr = 3;
-
-int8_t  str_dir[numstr] = { 1, -1, 1 };
-int8_t  str_chg[numstr] = { 1,  2, 4 };
-uint16_t str_len[numstr];
-int16_t str_x[numstr] = { 0, 0, 0 };
-int16_t str_y[numstr] = { 126, 164, 200 };
-// If the string is bigger than the screen size, pan instead of scrolling
-int16_t str_pan[numstr] = { 0, 0, 0 };
-uint16_t str_color[numstr] = { (uint16_t)0xFFFF, (uint16_t)0xFFC0, (uint16_t)0x03FF };
-
-
-void scrollText_reset() {
-    int16_t dummy;
-    uint16_t h;
-
-    tft->setRotation(3);
-    tft->setTextWrap(false);  // we don't wrap text so it scrolls nicely
-    tft->setTextSize(4);
-
-    for (uint8_t idx = 0; idx < numstr; idx++) {
-	tft->getTextBounds(str_display[idx], 0, 0, &dummy, &dummy, &str_len[idx], &h);
-	if (str_len[idx] > mw) str_pan[idx] = str_len[idx] - mw;
-    }
-
-    str_x[1] = (uint16_t) mw - str_len[1];
-}
-
-// tft-> talks directly to the full TFT via ArduinoGFX and matrix-> to FrameBuffer::GFX
-void scrollText_display() {
-    for (uint8_t idx = 0; idx < numstr; idx++) {
-	tft->setTextColor(str_color[idx]);
-	if (str_x[idx] < -str_pan[idx]) { 
-	    str_dir[idx] = 1; 
-	} else if (str_x[idx] > str_pan[idx] + mw - str_len[idx]) { 
-	    str_dir[idx] = -1; 
-	};
-	str_x[idx] += str_dir[idx] * str_chg[idx];
-
-	// Erase the previous text plus move speed before and after (str_chg)
-	tft->fillRect(str_x[idx]-str_chg[idx], str_y[idx], str_len[idx]+str_chg[idx]*2, fontsize, 0x0);
-	tft->setCursor(str_x[idx], str_y[idx]);
-	tft->print(str_display[idx]);
-    }
-}
-
-
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 typedef void (*SimplePatternList[])();
@@ -588,7 +806,8 @@ const SimplePatternList gPatterns = { stormyRain, fire, theMatrix,
 #endif
 // Only use patterns that work ok and look ok on 320x240 TFT
 SimplePatternList gPatterns = { 
-				stormyRain, bpm, theMatrix, pride, fire, 
+				// stormyRain, 
+				bpm, theMatrix, pride, fire, 
 };
 
 
@@ -601,15 +820,48 @@ void ChangePattern(int8_t dir)
 }
 
 void setup() {
-  matrix_setup();
-
-  sublime_setup();
-  sublime_reset();
-  scrollText_reset();
-  Serial.println("Setup done");
+    matrix_setup();
+    sublime_setup();
+    sublime_reset();
+    ssd1331_setup();
+    ssd1306_setup();
+    scrollText_reset();
+    show_free_mem("End of setup");
 }
 
 void loop() {
+	// ****************************************
+	// SSD1306 96x64 Gif Anim
+	// ****************************************
+	matrix = matrix_[1];
+	sav_loop();
+
+	// ****************************************
+	// SSD1306 
+	// ****************************************
+	static uint8_t cnt = 0;
+	uint8_t *imageptr;
+
+	button_handler();
+	// 7fps without I2C, 5fps with I2C on.
+	if ((imageptr = imagesL[cnt]) != NULL) {
+	    display1->clearDisplay();
+	    display1->drawBitmap(0, 0, imageptr, 128, 64, 1);
+	    display1->display();
+	}
+	if ((imageptr = imagesR[cnt]) != NULL) {
+	    display2->clearDisplay();
+	    display2->drawBitmap(0, 0, imageptr, 128, 64, 1);
+	    display2->display();
+	}
+	cnt++;
+	if (cnt == 53) cnt = 0;	
+
+	// ****************************************
+	// ILI9341 demos for top half of the screen
+	// ****************************************
+	matrix = matrix_[0];
+
         char readchar;
 	if (Serial.available()) readchar = Serial.read(); else readchar = 0;
 
@@ -641,5 +893,9 @@ void loop() {
 	gPatterns[gCurrentPatternNumber]();
 
 	matrix->show();
+
+	// ****************************************
+	// ILI9341 bottom screen text scrolling
+	// ****************************************
 	scrollText_display();
 }	
