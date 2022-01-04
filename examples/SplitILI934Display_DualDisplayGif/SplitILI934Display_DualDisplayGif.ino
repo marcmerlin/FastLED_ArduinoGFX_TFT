@@ -55,6 +55,9 @@ uint8_t **imagesL;
 uint8_t **imagesR;
 
 void ssd1306_setup() {
+    Serial.println("Wire start...");
+    Wire.begin(5, 4, 800000);
+
     display1 = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
     display2 = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
     // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
