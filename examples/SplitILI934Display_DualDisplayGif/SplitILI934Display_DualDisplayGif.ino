@@ -201,20 +201,16 @@ void ssd1306_setup() {
 void button_handler() {
     static bool leftoled = 0;
     static bool rightoled = 0;
-    static bool lastleftbut = 0;
-    static bool lastrightbut = 0;
 
-    bool leftbut  = digitalRead(BUTL);
-    bool rightbut = digitalRead(BUTR);
-    if (leftbut && !lastleftbut) {
+    bool leftbut  = !digitalRead(BUTL);
+    bool rightbut = !digitalRead(BUTR);
+    if (leftbut) {
         leftoled = !leftoled;
-	display1->invertDisplay(true);
-	lastleftbut = leftbut;
+	display1->invertDisplay(leftoled);
     }
-    if (rightbut && !lastrightbut) {
+    if (rightbut) {
         rightoled = !rightoled;
-	display2->invertDisplay(true);
-	lastrightbut = rightbut;
+	display2->invertDisplay(rightoled);
     }
 }
 
